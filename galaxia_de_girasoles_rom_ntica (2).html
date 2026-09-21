@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Para Mi Amor - Galaxia de Flores Amarillas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Poppins:wght@300;400;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050401;
+            font-family: 'Poppins', sans-serif;
+            user-select: none;
+        }
+
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .font-handwriting {
+            font-family: 'Dancing Script', cursive;
+        }
+
+        .font-romantic {
+            font-family: 'Great Vibes', cursive;
+        }
+
+        /* Styling for 3D HTML labels overlaid in screen space */
+        .floating-label {
+            position: absolute;
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            color: #fff9d6;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.8), 0 0 15px rgba(255, 180, 0, 0.6);
+            font-family: 'Dancing Script', cursive;
+            font-weight: 700;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s ease, text-shadow 0.2s ease;
+            white-space: nowrap;
+            background: rgba(15, 10, 2, 0.35);
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            backdrop-filter: blur(2px);
+        }
+
+        .floating-label:hover {
+            transform: translate(-50%, -50%) scale(1.15);
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.9), 0 0 20px rgba(255, 215, 0, 1);
+            border-color: rgba(255, 215, 0, 0.8);
+            background: rgba(30, 20, 5, 0.6);
+        }
+
+        /* Glassmorphism Romantic Card Modal */
+        .card-modal {
+            background: linear-gradient(135deg, rgba(255, 248, 220, 0.95) 0%, rgba(255, 235, 170, 0.92) 100%);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.4);
+            border: 2px solid rgba(255, 223, 0, 0.8);
+        }
+
+        /* Custom scrollbar for card if needed */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d4af37;
+            border-radius: 10px;
+        }
+
+        /* Glow effects */
+        .glow-button {
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+            transition: all 0.3s ease;
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.9);
+            transform: translateY(-2px);
+        }
+
+        /* Audio Control Button Floating */
+        .audio-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 20;
+            background: rgba(20, 15, 5, 0.6);
+            border: 1px solid rgba(255, 215, 0, 0.5);
+            color: #ffd700;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Modal animations */
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.85) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .animate-modal {
+            animation: modalFadeIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body class="relative min-h-screen flex items-center justify-center">
+
+    <div id="webgl-container"></div>
+
+    <div id="labels-container" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <!-- Audio Toggle Button -->
+    <button id="audio-toggle" class="audio-btn p-3 rounded-full flex items-center justify-center hover:bg-yellow-500/20 transition cursor-pointer" title="Música de Fondo">
+        <i class="fas fa-music text-lg"></i>
+    </button>
+
+    <!-- Bottom Action Button to Trigger Letter -->
+    <div class="absolute bottom-6 z-20 left-1/2 transform -translate-x-1/2 text-center pointer-events-auto">
+        <button id="open-card-btn" class="glow-button bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-600 text-stone-900 font-bold px-7 py-3 rounded-full text-lg flex items-center justify-center gap-2 cursor-pointer border border-yellow-200 mx-auto">
+            <i class="fas fa-envelope-open-text text-xl"></i>
+            <span>Abrir Mi Carta</span>
+        </button>
+        <p class="text-yellow-200/70 text-xs mt-2 tracking-wider drop-shadow">✨ Arrastra con el mouse/dedo para girar la galaxia ✨</p>
+    </div>
+
+    <div id="card-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden">
+        <div class="card-modal animate-modal relative max-w-md w-full rounded-3xl p-6 sm:p-8 text-stone-800 text-center overflow-hidden border-4 border-amber-300">
+            <!-- Decorative Sunflower Corner Elements (SVG) -->
+            <div class="absolute -top-6 -left-6 w-20 h-20 opacity-80 pointer-events-none">
+                <svg viewBox="0 0 100 100" fill="#eab308"><circle cx="50" cy="50" r="20" fill="#78350f"/><path d="M50 10 L50 30 M50 70 L50 90 M10 50 L30 50 M70 50 L90 50 M22 22 L36 36 M64 64 L78 78 M22 78 L36 64 M64 36 L78 22" stroke="#eab308" stroke-width="12" stroke-linecap="round"/></svg>
+            </div>
+            <div class="absolute -bottom-6 -right-6 w-20 h-20 opacity-80 pointer-events-none">
+                <svg viewBox="0 0 100 100" fill="#eab308"><circle cx="50" cy="50" r="20" fill="#78350f"/><path d="M50 10 L50 30 M50 70 L50 90 M10 50 L30 50 M70 50 L90 50 M22 22 L36 36 M64 64 L78 78 M22 78 L36 64 M64 36 L78 22" stroke="#eab308" stroke-width="12" stroke-linecap="round"/></svg>
+            </div>
+
+            <!-- Card Header -->
+            <div class="relative z-10">
+                <h2 class="font-romantic text-5xl text-amber-900 mb-1 drop-shadow-sm">Mi amor:</h2>
+                <div class="w-24 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent mx-auto mb-4"></div>
+
+                <!-- Letter Body -->
+                <p class="text-base sm:text-lg text-amber-950 leading-relaxed font-medium my-4 px-2">
+                    Te regalo estas flores amarillas como un pequeño detalle para recordarte lo especial que eres para mí. 💛
+                </p>
+                <p class="text-base sm:text-lg text-amber-950 leading-relaxed font-medium my-4 px-2">
+                    Aunque no pueda entregártelas en persona, espero que al verlas puedas sentir un poquito de todo el cariño que tengo por ti.
+                </p>
+
+                <!-- Subtext / Sign off -->
+                <div class="mt-6 mb-2">
+                    <p class="font-romantic text-4xl text-amber-700 font-bold">Para ti, siempre.</p>
+                    <span class="inline-block bg-amber-200/80 text-amber-900 text-xs font-semibold px-4 py-1 rounded-full uppercase tracking-widest mt-2 border border-amber-300">
+                        🌻 Para Ti 🌻
+                    </span>
+                </div>
+
+                <!-- Sunflower Graphic SVG Center -->
+                <div class="my-4 flex justify-center">
+                    <svg class="w-24 h-24 drop-shadow-md animate-pulse" viewBox="0 0 100 100">
+                        <!-- Petals -->
+                        <g fill="#f59e0b">
+                            <ellipse cx="50" cy="20" rx="8" ry="18"/>
+                            <ellipse cx="50" cy="80" rx="8" ry="18"/>
+                            <ellipse cx="20" cy="50" rx="18" ry="8"/>
+                            <ellipse cx="80" cy="50" rx="18" ry="8"/>
+                            <ellipse cx="29" cy="29" rx="8" ry="18" transform="rotate(-45 29 29)"/>
+                            <ellipse cx="71" cy="71" rx="8" ry="18" transform="rotate(-45 71 71)"/>
+                            <ellipse cx="29" cy="71" rx="8" ry="18" transform="rotate(45 29 71)"/>
+                            <ellipse cx="71" cy="29" rx="8" ry="18" transform="rotate(45 71 29)"/>
+                        </g>
+                        <!-- Center -->
+                        <circle cx="50" cy="50" r="18" fill="#451a03"/>
+                        <circle cx="50" cy="50" r="14" fill="#78350f" stroke="#b45309" stroke-width="2"/>
+                    </svg>
+                </div>
+
+                <!-- Close Button -->
+                <button id="close-card-btn" class="mt-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-semibold px-8 py-2.5 rounded-full shadow-lg hover:shadow-xl transition duration-200 cursor-pointer text-sm tracking-wide">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        let scene, camera, renderer, controls;
+        let galaxyGeometry, galaxyMaterial, galaxyPoints;
+        let heartMesh, heartParticles;
+        let floatingElements = [];
+        let labelElements = [];
+        const clock = new THREE.Clock();
+
+        // Romantic Phrases for 3D Floating Labels
+        const lovePhrases = [
+            "Te Amo", "Eres mi sol ☀️", "Mi Amor", "Siempre juntos 💕",
+            "Eres precioso ✨", "Me encantas", "Amor de mi vida", "Eres único 🌻",
+            "Mi Todo 💛", "Te adoro", "My Love 💖"
+        ];
+
+        // --- Helper Function: Generate Canvas Textures procedurally ---
+        // 1. Sunflower Texture
+        function createSunflowerTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            const cx = 128, cy = 128;
+            
+            // Draw Sunflower Petals
+            const petalCount = 16;
+            ctx.fillStyle = '#ffcc00';
+            for (let i = 0; i < petalCount; i++) {
+                const angle = (i * Math.PI * 2) / petalCount;
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(angle);
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(25, -90, 0, -115);
+                ctx.quadraticCurveTo(-25, -90, 0, 0);
+                ctx.fill();
+                
+                // Inner golden gradient detail
+                ctx.fillStyle = '#ffa500';
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(15, -60, 0, -80);
+                ctx.quadraticCurveTo(-15, -60, 0, 0);
+                ctx.fill();
+                ctx.fillStyle = '#ffcc00';
+                
+                ctx.restore();
+            }
+
+            // Draw Flower Center (Brown/Dark Seed Grid)
+            const gradient = ctx.createRadialGradient(cx, cy, 5, cx, cy, 45);
+            gradient.addColorStop(0, '#3d1e03');
+            gradient.addColorStop(0.7, '#5c2c06');
+            gradient.addColorStop(1, '#2b1200');
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, 45, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.strokeStyle = '#e69d00';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Center Ring Texture Dots
+            ctx.fillStyle = '#220e01';
+            for (let r = 8; r < 40; r += 8) {
+                const count = r * 1.8;
+                for (let a = 0; a < Math.PI * 2; a += (Math.PI * 2) / count) {
+                    ctx.beginPath();
+                    ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        // 2. Bouquet Texture
+        function createBouquetTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Draw Kraft Paper Wrapper
+            ctx.fillStyle = '#d2b48c';
+            ctx.beginPath();
+            ctx.moveTo(128, 240);
+            ctx.lineTo(60, 130);
+            ctx.lineTo(196, 130);
+            ctx.closePath();
+            ctx.fill();
+
+            // Ribbons
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(128, 170, 15, 0, Math.PI);
+            ctx.stroke();
+
+            // Multiple Mini Sunflowers on top
+            const miniCenters = [
+                {x: 128, y: 110, r: 28},
+                {x: 95, y: 125, r: 24},
+                {x: 161, y: 125, r: 24},
+                {x: 110, y: 80, r: 22},
+                {x: 146, y: 80, r: 22}
+            ];
+
+            miniCenters.forEach(c => {
+                // Petals
+                ctx.fillStyle = '#ffbf00';
+                for(let a=0; a<Math.PI*2; a+=Math.PI/6) {
+                    ctx.beginPath();
+                    ctx.ellipse(c.x + Math.cos(a)*c.r*0.8, c.y + Math.sin(a)*c.r*0.8, c.r*0.5, c.r*0.2, a, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                // Center
+                ctx.fillStyle = '#4a2506';
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.r * 0.45, 0, Math.PI*2);
+                ctx.fill();
+            });
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // 3. Glow Particle Texture
+        function createParticleGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.2, 'rgba(255, 220, 100, 0.9)');
+            gradient.addColorStop(0.5, 'rgba(255, 170, 0, 0.4)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function initScene() {
+            const container = document.getElementById('webgl-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050401, 0.012);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 18, 30);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 70;
+            controls.minDistance = 5;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go too far below ground
+
+            // Ambient & Point Lights
+            const ambientLight = new THREE.AmbientLight(0xffeedd, 1.2);
+            scene.add(ambientLight);
+
+            const coreLight = new THREE.PointLight(0xffaa00, 3, 50);
+            coreLight.position.set(0, 0, 0);
+            scene.add(coreLight);
+
+            // Create Components
+            createSpiralGalaxy();
+            createSparklingHeart();
+            createFloatingFlowersAndLabels();
+            createBackgroundStarfield();
+
+            // Window Resize Listener
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createSpiralGalaxy() {
+            const parameters = {
+                count: 45000,
+                size: 0.18,
+                radius: 22,
+                branches: 4,
+                spin: 1,
+                randomness: 0.5,
+                power: 3,
+                insideColor: '#ffe600',
+                outsideColor: '#ff5500'
+            };
+
+            galaxyGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(parameters.count * 3);
+            const colors = new Float32Array(parameters.count * 3);
+            const scales = new Float32Array(parameters.count);
+
+            const colorInside = new THREE.Color(parameters.insideColor);
+            const colorOutside = new THREE.Color(parameters.outsideColor);
+
+            for (let i = 0; i < parameters.count; i++) {
+                // Position
+                const i3 = i * 3;
+                const radius = Math.random() * parameters.radius;
+                const spinAngle = radius * parameters.spin;
+                const branchAngle = ((i % parameters.branches) / parameters.branches) * Math.PI * 2;
+
+                const randomX = Math.pow(Math.random(), parameters.power) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+                const randomY = Math.pow(Math.random(), parameters.power) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+                const randomZ = Math.pow(Math.random(), parameters.power) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+
+                positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+                positions[i3 + 1] = randomY * 0.4; // Flattened disc
+                positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+
+                // Color Blend
+                const mixedColor = colorInside.clone();
+                mixedColor.lerp(colorOutside, radius / parameters.radius);
+                
+                // Add slight white variation for brightness
+                if (Math.random() > 0.9) {
+                    mixedColor.addScalar(0.4);
+                }
+
+                colors[i3] = mixedColor.r;
+                colors[i3 + 1] = mixedColor.g;
+                colors[i3 + 2] = mixedColor.b;
+
+                // Scales
+                scales[i] = Math.random() * 0.8 + 0.2;
+            }
+
+            galaxyGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            galaxyGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            galaxyGeometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
+
+            // Material
+            galaxyMaterial = new THREE.PointsMaterial({
+                size: parameters.size,
+                sizeAttenuation: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexColors: true,
+                map: createParticleGlowTexture(),
+                transparent: true
+            });
+
+            galaxyPoints = new THREE.Points(galaxyGeometry, galaxyMaterial);
+            scene.add(galaxyPoints);
+        }
+
+        function createSparklingHeart() {
+            // Heart shape definition
+            const heartShape = new THREE.Shape();
+            const x = 0, y = 0;
+            heartShape.moveTo(x + 0.25, y + 0.25);
+            heartShape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.2, y, x, y);
+            heartShape.bezierCurveTo(x - 0.3, y, x - 0.3, y + 0.35, x - 0.3, y + 0.35);
+            heartShape.bezierCurveTo(x - 0.3, y + 0.55, x - 0.1, y + 0.77, x + 0.25, y + 0.95);
+            heartShape.bezierCurveTo(x + 0.6, y + 0.77, x + 0.8, y + 0.55, x + 0.8, y + 0.35);
+            heartShape.bezierCurveTo(x + 0.8, y + 0.35, x + 0.8, y, x + 0.5, y);
+            heartShape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
+
+            const extrudeSettings = {
+                depth: 0.2,
+                bevelEnabled: true,
+                bevelSegments: 3,
+                steps: 1,
+                bevelSize: 0.1,
+                bevelThickness: 0.1
+            };
+
+            const heartGeo = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+            heartGeo.center();
+
+            const heartMat = new THREE.MeshStandardMaterial({
+                color: 0xffd700,
+                emissive: 0xffaa00,
+                emissiveIntensity: 0.8,
+                roughness: 0.2,
+                metalness: 0.8
+            });
+
+            heartMesh = new THREE.Mesh(heartGeo, heartMat);
+            heartMesh.scale.set(3, 3, 3);
+            heartMesh.position.set(0, 5.5, 0);
+            heartMesh.rotation.z = Math.PI; // Flip right side up
+            scene.add(heartMesh);
+
+            // Sparkling Particle Outline surrounding Heart
+            const heartPointsGeo = new THREE.BufferGeometry();
+            const count = 600;
+            const positions = new Float32Array(count * 3);
+
+            for(let i = 0; i < count; i++) {
+                const t = (i / count) * Math.PI * 2;
+                // Heart math curve
+                const hx = 16 * Math.pow(Math.sin(t), 3);
+                const hy = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+                
+                positions[i*3] = (hx / 16) * 2.8 + (Math.random() - 0.5) * 0.3;
+                positions[i*3+1] = (hy / 16) * 2.8 + 5.5 + (Math.random() - 0.5) * 0.3;
+                positions[i*3+2] = (Math.random() - 0.5) * 0.5;
+            }
+
+            heartPointsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const heartParticleMat = new THREE.PointsMaterial({
+                size: 0.25,
+                color: 0xffffff,
+                map: createParticleGlowTexture(),
+                blending: THREE.AdditiveBlending,
+                transparent: true
+            });
+
+            heartParticles = new THREE.Points(heartPointsGeo, heartParticleMat);
+            scene.add(heartParticles);
+
+            // Vertical Light Beam under Heart
+            const beamGeo = new THREE.CylinderGeometry(0.2, 1.5, 6, 16, 1, true);
+            const beamMat = new THREE.MeshBasicMaterial({
+                color: 0xffcc00,
+                transparent: true,
+                opacity: 0.35,
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending
+            });
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+            beam.position.set(0, 2.5, 0);
+            scene.add(beam);
+        }
+
+        function createFloatingFlowersAndLabels() {
+            const sunflowerTex = createSunflowerTexture();
+            const bouquetTex = createBouquetTexture();
+
+            const flowerMaterial = new THREE.SpriteMaterial({ map: sunflowerTex, transparent: true });
+            const bouquetMaterial = new THREE.SpriteMaterial({ map: bouquetTex, transparent: true });
+
+            const count = 18;
+            const labelsContainer = document.getElementById('labels-container');
+
+            for (let i = 0; i < count; i++) {
+                // Determine layout along spiral / radius
+                const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.5);
+                const radius = 6 + Math.random() * 14;
+                const height = (Math.random() - 0.3) * 4 + 1;
+
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                const y = height;
+
+                // Alternate between Single Sunflower Sprite & Bouquet
+                const isBouquet = i % 3 === 0;
+                const spriteMat = isBouquet ? bouquetMaterial : flowerMaterial;
+                const sprite = new THREE.Sprite(spriteMat);
+
+                const size = isBouquet ? 2.8 + Math.random() * 0.8 : 2.0 + Math.random() * 0.6;
+                sprite.scale.set(size, size, 1);
+                sprite.position.set(x, y, z);
+
+                // Add to floating elements tracking
+                floatingElements.push({
+                    mesh: sprite,
+                    baseY: y,
+                    speed: 0.8 + Math.random() * 0.8,
+                    offset: Math.random() * Math.PI * 2
+                });
+
+                scene.add(sprite);
+
+                // Create associated HTML Text Label for romance phrase
+                if (i < lovePhrases.length) {
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'floating-label';
+                    labelDiv.innerText = lovePhrases[i];
+                    
+                    // Click handler on label opens card
+                    labelDiv.addEventListener('click', openCardModal);
+
+                    labelsContainer.appendChild(labelDiv);
+
+                    labelElements.push({
+                        element: labelDiv,
+                        position: new THREE.Vector3(x, y + (size * 0.6), z)
+                    });
+                }
+            }
+        }
+
+        function createBackgroundStarfield() {
+            const count = 1500;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 160;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 160;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 160;
+
+                // Yellowish / White distant stars
+                colors[i * 3] = 1.0;
+                colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+                colors[i * 3 + 2] = 0.4 + Math.random() * 0.5;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.35,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                map: createParticleGlowTexture(),
+                blending: THREE.AdditiveBlending
+            });
+
+            const starfield = new THREE.Points(geometry, material);
+            scene.add(starfield);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // 1. Rotate Galaxy Spiral
+            if (galaxyPoints) {
+                galaxyPoints.rotation.y = elapsedTime * 0.05;
+            }
+
+            // 2. Animate Heart floating & pulse
+            if (heartMesh) {
+                heartMesh.position.y = 5.5 + Math.sin(elapsedTime * 1.8) * 0.3;
+                heartMesh.rotation.y = Math.sin(elapsedTime * 0.5) * 0.2;
+                const scale = 3 + Math.sin(elapsedTime * 3) * 0.15;
+                heartMesh.scale.set(scale, scale, scale);
+            }
+
+            if (heartParticles) {
+                heartParticles.rotation.y = elapsedTime * 0.1;
+            }
+
+            // 3. Animate Floating Flowers & sync HTML label positions
+            floatingElements.forEach((item) => {
+                item.mesh.position.y = item.baseY + Math.sin(elapsedTime * item.speed + item.offset) * 0.4;
+            });
+
+            // Update Orbit Controls
+            controls.update();
+
+            // Project 3D Positions to 2D Screen Coordinates for HTML Floating Labels
+            const tempV = new THREE.Vector3();
+            labelElements.forEach((item) => {
+                // Update y to match floating element if tied
+                tempV.copy(item.position);
+                tempV.y += Math.sin(elapsedTime + item.position.x) * 0.005; // slight sync drift
+
+                tempV.project(camera);
+
+                // Check if behind camera
+                if (tempV.z > 1) {
+                    item.element.style.display = 'none';
+                    return;
+                }
+
+                const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+
+                item.element.style.display = 'block';
+                item.element.style.left = `${x}px`;
+                item.element.style.top = `${y}px`;
+            });
+
+            // Render
+            renderer.render(scene, camera);
+        }
+
+        const cardModal = document.getElementById('card-modal');
+        const openCardBtn = document.getElementById('open-card-btn');
+        const closeCardBtn = document.getElementById('close-card-btn');
+        const audioBtn = document.getElementById('audio-toggle');
+
+        function openCardModal() {
+            cardModal.classList.remove('hidden');
+            playChimeSound();
+        }
+
+        function closeCardModal() {
+            cardModal.classList.add('hidden');
+        }
+
+        openCardBtn.addEventListener('click', openCardModal);
+        closeCardBtn.addEventListener('click', closeCardModal);
+
+        // Close on clicking overlay outside card
+        cardModal.addEventListener('click', (e) => {
+            if (e.target === cardModal) {
+                closeCardModal();
+            }
+        });
+
+        // --- Web Audio Synthetic Ambient Music Synthesizer ---
+        let audioCtx = null;
+        let isPlaying = false;
+        let melodyInterval = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playChimeSound() {
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, now); // C5
+            osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.5); // C6
+
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 1.2);
+        }
+
+        function toggleBackgroundMelody() {
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            if (isPlaying) {
+                clearInterval(melodyInterval);
+                audioBtn.classList.remove('bg-yellow-500/40', 'text-white');
+                audioBtn.innerHTML = '<i class="fas fa-music text-lg"></i>';
+                isPlaying = false;
+            } else {
+                isPlaying = true;
+                audioBtn.classList.add('bg-yellow-500/40', 'text-white');
+                audioBtn.innerHTML = '<i class="fas fa-volume-up text-lg"></i>';
+
+                // Soft romantic pentatonic melody synth
+                const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
+                
+                melodyInterval = setInterval(() => {
+                    if (!isPlaying) return;
+                    const note = notes[Math.floor(Math.random() * notes.length)];
+                    const now = audioCtx.currentTime;
+
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(note, now);
+
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 2.5);
+                }, 800);
+            }
+        }
+
+        audioBtn.addEventListener('click', toggleBackgroundMelody);
+
+        // --- Start Application on Window Load ---
+        window.onload = function () {
+            initScene();
+            animate();
+        };
+    </script>
+</body>
+</html>
